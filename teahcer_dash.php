@@ -471,6 +471,44 @@
     grid-template-columns: 1.4fr 1fr;
     gap: .85rem
   }
+
+  @media(max-width: 768px) {
+    .shell {
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar {
+      flex-direction: row;
+      overflow-x: auto;
+      white-space: nowrap;
+      padding: 0.5rem;
+    }
+    .sb-logo, .sb-section, .sb-footer {
+      display: none;
+    }
+    .sb-item {
+      padding: 0.4rem 0.8rem;
+      border-left: none;
+      border-bottom: 2px solid transparent;
+      margin: 0;
+    }
+    .sb-item.active {
+      border-left-color: transparent;
+      border-bottom-color: rgba(255, 255, 255, .5);
+      background: rgba(255, 255, 255, .1);
+    }
+    .grid2 {
+      grid-template-columns: 1fr;
+    }
+    .stat-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .stu-table {
+      display: block;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+  }
 </style>
 
 <div class="shell">

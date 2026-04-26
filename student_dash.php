@@ -508,6 +508,46 @@
     grid-template-columns: 1.2fr 1fr 0.8fr;
     gap: .85rem
   }
+
+  @media(max-width: 768px) {
+    .shell {
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar {
+      flex-direction: row;
+      overflow-x: auto;
+      white-space: nowrap;
+      padding: 0.5rem;
+    }
+    .sb-logo, .sb-section, .sb-footer {
+      display: none;
+    }
+    .sb-item {
+      padding: 0.4rem 0.8rem;
+      border-left: none;
+      border-bottom: 2px solid transparent;
+      margin: 0;
+    }
+    .sb-item.active {
+      border-left-color: transparent;
+      border-bottom-color: rgba(255, 255, 255, .5);
+      background: rgba(255, 255, 255, .1);
+    }
+    .grid2 {
+      grid-template-columns: 1fr;
+    }
+    .attend-card {
+      flex-direction: column;
+      text-align: center;
+    }
+    .attend-stats {
+      justify-content: center;
+    }
+    .field-row {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
 
 <div class="shell">
@@ -882,4 +922,50 @@
       btn.textContent = '📄 Submit (with document)';
     }
   }
+
+  // Form submission
+  document.querySelector('form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const formData = {
+      leave_type: document.querySelector('select[name="reason_type"]').value,
+      from_date: document.querySelector('input[name="absent_date"]').value,
+      to_date: document.querySelector('input[name="absent_date"]').value,
+      reason: document.querySelector('textarea[name="reason"]').value
+    };
+
+    if (!formData.leave_type || !formData.from_date || !formData.reason) {
+      alert('Please fill all required fields');
+      return;
+    }
+
+    const btn = document.querySelector('.btn-submit');
+    const originalText = btn.textContent;
+    btn.textContent = '⏳ Processing...';
+    btn.disabled = true;
+
+    try {
+      const response = await fetch('api/submit_request.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`✓ Excuse Submitted!\n\nStatus: ${result.status}\nCredibility: ${result.score}%\n${result.message}`);
+        document.querySelector('form').reset();
+        document.getElementById('aiFeedback').classList.remove('show');
+        document.getElementById('charCount').textContent = '0';
+      } else {
+        alert('Error: ' + result.message);
+      }
+    } catch (error) {
+      alert('Error submitting request. Please try again.');
+    } finally {
+      btn.textContent = 'Submit excuse →';
+      btn.style.background = 'var(--accent)';
+      btn.disabled = false;
+    }
+  });
 </script>

@@ -434,6 +434,42 @@
     grid-template-columns: 1.2fr 1fr;
     gap: .85rem
   }
+
+  @media(max-width: 768px) {
+    .shell {
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar {
+      flex-direction: row;
+      overflow-x: auto;
+      white-space: nowrap;
+      padding: 0.5rem;
+    }
+    .sb-logo, .sb-section, .sb-footer {
+      display: none;
+    }
+    .sb-item {
+      padding: 0.4rem 0.8rem;
+      border-left: none;
+      border-bottom: 2px solid transparent;
+      margin: 0;
+    }
+    .sb-item.active {
+      border-left-color: transparent;
+      border-bottom-color: rgba(255, 255, 255, .5);
+      background: rgba(255, 255, 255, .1);
+    }
+    .grid2 {
+      grid-template-columns: 1fr;
+    }
+    .balance-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
 
 <div class="shell">
@@ -849,26 +885,23 @@
     btn.disabled = true;
 
     try {
-      // In production, send to your backend
-      // const response = await fetch('process_leave_request.php', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData)
-      // });
-      // const result = await response.json();
+      // Send to backend API
+      const response = await fetch('api/submit_request.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      const result = await response.json();
 
-      // Simulate success for now
-      const score = calculateCredibilityScore();
-      const sanction = getSanctionStatus(formData.reason, score);
-
-      // Show success message
-      setTimeout(() => {
-        alert(`✓ Request Submitted!\n\nStatus: ${sanction.status}\nCredibility: ${score}%\n${sanction.message}`);
+      if (result.success) {
+        alert(`✓ Request Submitted!\n\nStatus: ${result.status}\nCredibility: ${result.score}%\n${result.message}`);
         document.querySelector('form').reset();
-        btn.textContent = originalText;
-        btn.disabled = false;
         previewAI();
-      }, 1000);
+      } else {
+        alert('Error: ' + result.message);
+      }
+      btn.textContent = originalText;
+      btn.disabled = false;
 
     } catch (error) {
       alert('Error submitting request. Please try again.');
