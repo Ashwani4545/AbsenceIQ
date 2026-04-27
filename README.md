@@ -248,50 +248,25 @@ FINAL SCORE: 90%
 
 ---
 
-## Database Integration (TODO)
+## Database Integration
 
-### Required Table: `leave_requests`
-```sql
-CREATE TABLE leave_requests (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    leave_type VARCHAR(50),
-    from_date DATE,
-    to_date DATE,
-    reason TEXT,
-    credibility_score INT (0-100),
-    sanction_status ENUM('APPROVE', 'PENDING', 'REJECT'),
-    auto_sanctioned BOOLEAN,
-    sanction_reason VARCHAR(255),
-    rule_matched VARCHAR(50),
-    submitted_date TIMESTAMP,
-    approval_date TIMESTAMP NULL,
-    approved_by INT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (approved_by) REFERENCES users(id)
-);
-```
+The database integration is complete and uses PDO to connect to MySQL.
+
+### Setup Instructions
+
+1. Ensure your MySQL server (via XAMPP or similar) is running.
+2. Run the provided `setup_db.php` script from the command line or browser:
+   ```bash
+   php setup_db.php
+   ```
+3. This will create the `absenceiq` database and automatically seed all the required tables:
+   - `users`
+   - `leave_requests`
+   - `leave_sanction_audit`
+   - `leave_sanction_stats`
 
 ### Backend Implementation
-Update `process_leave_request.php` function `saveRequestToDatabase()`:
-```php
-private function saveRequestToDatabase($record) {
-    $query = "INSERT INTO leave_requests 
-              (user_id, leave_type, from_date, to_date, reason, 
-               credibility_score, sanction_status, auto_sanctioned, 
-               sanction_reason, rule_matched, submitted_date, approval_date) 
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    
-    $stmt = $this->db_connection->prepare($query);
-    $stmt->execute([
-        $record['user_id'], $record['leave_type'], $record['from_date'], 
-        $record['to_date'], $record['reason'], $record['credibility_score'],
-        $record['sanction_status'], $record['auto_sanctioned'],
-        $record['sanction_reason'], $record['rule_matched'],
-        $record['submitted_date'], $record['approval_date']
-    ]);
-}
-```
+The API endpoint `/api/submit_request.php` is fully functional. It accepts POST requests from the dashboards, connects to the database via `db_config.php`, runs the AI credibility check via `LeaveSanctionRules`, and stores the request appropriately.
 
 ---
 
@@ -434,6 +409,13 @@ A: Adjust threshold in `leave_sanction_rules.php` - change `flag_if_count_exceed
 ---
 
 ## Version History
+
+**v1.1** (2026-04-26)
+- Fully integrated MySQL Database via PDO
+- Added `setup_db.php` initialization script
+- Added `api/submit_request.php` endpoint
+- Updated dashboards (`emp_dash.php`, `student_dash.php`, `hr_dash.php`, `teahcer_dash.php`) to be completely responsive on mobile devices using modern CSS Flexbox and Grid.
+- Wired front-end forms to submit directly to backend APIs via Fetch API.
 
 **v1.0** (2026-04-15)
 - Initial release

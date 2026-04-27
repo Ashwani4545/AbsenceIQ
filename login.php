@@ -1,3 +1,50 @@
+<?php
+session_start();
+require_once 'db_config.php';
+
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $db = (new Database())->getConnection();
+    
+    $email = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+    
+    if (empty($email) || empty($password)) {
+        $error = 'Please enter both email and password.';
+    } else {
+        $stmt = $db->prepare("SELECT id, name, password, role FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($user && password_verify($password, $user['password'])) {
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['user_name'] = $user['name'];
+            $_SESSION['user_role'] = $user['role'];
+            
+            // Redirect based on role
+            switch ($user['role']) {
+                case 'HR':
+                    header("Location: hr_dash.php");
+                    break;
+                case 'TEACHER':
+                    header("Location: teahcer_dash.php");
+                    break;
+                case 'STUDENT':
+                    header("Location: student_dash.php");
+                    break;
+                case 'EMPLOYEE':
+                default:
+                    header("Location: emp_dash.php");
+                    break;
+            }
+            exit;
+        } else {
+            $error = 'Incorrect email or password.';
+        }
+    }
+}
+?>
 <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&display=swap');
 
@@ -463,12 +510,12 @@
         </div>
 
         <!-- ERROR BANNER (shown on bad login) -->
-        <div class="error-banner" id="errorBanner">
-            <span>⚠</span> Incorrect email or password. Please try again.
+        <div class="error-banner <?php echo !empty($error) ? 'show' : ''; ?>" id="errorBanner">
+            <span>⚠</span> <?php echo !empty($error) ? htmlspecialchars($error) : 'Incorrect email or password. Please try again.'; ?>
         </div>
 
         <!-- FORM (PHP action) -->
-        <form method="POST" action="login.php" id="loginForm" onsubmit="return handleSubmit(event)">
+        <form method="POST" action="login.php" id="loginForm">
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?? ''; ?>">
 
             <div class="field">
@@ -524,33 +571,12 @@
         event.target.textContent = inp.type === 'password' ? 'show' : 'hide';
     }
 
-    function handleSubmit(e) {
-        e.preventDefault();
-        const email = document.getElementById('email').value;
-        const pass = document.getElementById('password').value;
+    // Optional: Add loading state purely for UI feedback on click
+    document.getElementById('loginForm').addEventListener('submit', function() {
         const btn = document.getElementById('submitBtn');
-
-        // Demo: simulate wrong password to show error state
-        if (pass === 'wrong') {
-            document.getElementById('errorBanner').classList.add('show');
-            document.getElementById('password').classList.add('err');
-            return false;
-        }
-
-        // Loading state
         btn.textContent = 'Signing in…';
-        btn.disabled = true;
         btn.style.opacity = '.7';
-
-        // In real PHP, form submits normally — this is just demo feedback
-        setTimeout(() => {
-            btn.textContent = 'Sign in →';
-            btn.disabled = false;
-            btn.style.opacity = '1';
-        }, 1800);
-
-        return true;
-    }
+    });
 
     // Clear error on input
     document.getElementById('email').addEventListener('input', clearErr);

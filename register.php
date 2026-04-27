@@ -1,3 +1,49 @@
+<?php
+session_start();
+require_once 'db_config.php';
+
+$error = '';
+$success = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $db = (new Database())->getConnection();
+    
+    $role = $_POST['role'] ?? 'EMPLOYEE'; // Default fallback
+    $firstName = trim($_POST['first_name'] ?? '');
+    $lastName = trim($_POST['last_name'] ?? '');
+    $name = $firstName . ' ' . $lastName;
+    $email = trim($_POST['email'] ?? '');
+    $department = trim($_POST['department'] ?? '');
+    $password = $_POST['password'] ?? '';
+    
+    if (empty($firstName) || empty($email) || empty($password)) {
+        $error = 'Please fill in all required fields.';
+    } else {
+        // Check if email exists
+        $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        if ($stmt->fetch()) {
+            $error = 'An account with this email already exists.';
+        } else {
+            // Hash password
+            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+            $roleEnum = strtoupper($role);
+            if (!in_array($roleEnum, ['HR', 'EMPLOYEE', 'TEACHER', 'STUDENT'])) {
+                $roleEnum = 'EMPLOYEE';
+            }
+            
+            $insertStmt = $db->prepare("INSERT INTO users (name, email, password, role, department) VALUES (?, ?, ?, ?, ?)");
+            try {
+                $insertStmt->execute([$name, $email, $hashedPassword, $roleEnum, $department]);
+                $success = 'Account created successfully! Redirecting to login...';
+                echo "<script>setTimeout(() => { window.location.href = 'login.php'; }, 2000);</script>";
+            } catch (PDOException $e) {
+                $error = 'Error creating account: ' . $e->getMessage();
+            }
+        }
+    }
+}
+?>
 <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&display=swap');
 
@@ -534,14 +580,14 @@
 
         <!-- ROLE TABS -->
         <div class="role-tabs" id="roleTabs">
-            <button class="role-tab active" data-role="hr">HR manager</button>
-            <button class="role-tab" data-role="employee">Employee</button>
-            <button class="role-tab" data-role="teacher">Teacher</button>
-            <button class="role-tab" data-role="student">Student</button>
+            <button type="button" class="role-tab active" data-role="hr">HR manager</button>
+            <button type="button" class="role-tab" data-role="employee">Employee</button>
+            <button type="button" class="role-tab" data-role="teacher">Teacher</button>
+            <button type="button" class="role-tab" data-role="student">Student</button>
         </div>
 
         <!-- SOCIAL -->
-        <button class="btn-social">
+        <button type="button" class="btn-social">
             <svg width="16" height="16" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
@@ -553,39 +599,53 @@
 
         <div class="divider">or register with email</div>
 
-        <!-- FIELDS -->
-        <div class="field-row">
-            <div class="field"><label>First name</label><input type="text" placeholder="Ada"></div>
-            <div class="field"><label>Last name</label><input type="text" placeholder="Lovelace"></div>
-        </div>
-        <div class="field"><label>Work email</label><input type="email" placeholder="ada@company.com"></div>
-
-        <!-- CONTEXTUAL FIELD -->
-        <div class="field" id="contextField">
-            <label id="contextLabel">Organisation / company</label>
-            <input type="text" id="contextInput" placeholder="Meridian Corp">
-        </div>
-
-        <div class="field">
-            <label>Password</label>
-            <div class="pw-wrap">
-                <input type="password" id="pwInput" placeholder="Min. 8 characters" oninput="checkStrength(this.value)">
-                <button class="pw-toggle" onclick="togglePw()">show</button>
+        <?php if (!empty($error)): ?>
+            <div style="background: var(--err-bg); color: var(--err); padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--err);">
+                ⚠ <?php echo htmlspecialchars($error); ?>
             </div>
-            <div class="strength-bar">
-                <div class="strength-seg" id="s1"></div>
-                <div class="strength-seg" id="s2"></div>
-                <div class="strength-seg" id="s3"></div>
+        <?php endif; ?>
+        <?php if (!empty($success)): ?>
+            <div style="background: var(--success-bg); color: var(--success); padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--success);">
+                ✓ <?php echo htmlspecialchars($success); ?>
             </div>
-            <div class="strength-label" id="sLabel">Enter a password</div>
-        </div>
+        <?php endif; ?>
 
-        <div class="terms">
-            <input type="checkbox" id="agree">
-            <label for="agree">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>. I understand AbsenceIQ may process absence data on my behalf.</label>
-        </div>
+        <form method="POST" action="register.php">
+            <input type="hidden" name="role" id="roleInput" value="hr">
+            <!-- FIELDS -->
+            <div class="field-row">
+                <div class="field"><label>First name</label><input type="text" name="first_name" placeholder="Ada" required></div>
+                <div class="field"><label>Last name</label><input type="text" name="last_name" placeholder="Lovelace"></div>
+            </div>
+            <div class="field"><label>Work email</label><input type="email" name="email" placeholder="ada@company.com" required></div>
 
-        <button class="btn-submit">Create account →</button>
+            <!-- CONTEXTUAL FIELD -->
+            <div class="field" id="contextField">
+                <label id="contextLabel">Organisation / company</label>
+                <input type="text" name="department" id="contextInput" placeholder="Meridian Corp">
+            </div>
+
+            <div class="field">
+                <label>Password</label>
+                <div class="pw-wrap">
+                    <input type="password" name="password" id="pwInput" placeholder="Min. 8 characters" oninput="checkStrength(this.value)" required>
+                    <button type="button" class="pw-toggle" onclick="togglePw()">show</button>
+                </div>
+                <div class="strength-bar">
+                    <div class="strength-seg" id="s1"></div>
+                    <div class="strength-seg" id="s2"></div>
+                    <div class="strength-seg" id="s3"></div>
+                </div>
+                <div class="strength-label" id="sLabel">Enter a password</div>
+            </div>
+
+            <div class="terms">
+                <input type="checkbox" id="agree" required>
+                <label for="agree">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>. I understand AbsenceIQ may process absence data on my behalf.</label>
+            </div>
+
+            <button type="submit" class="btn-submit">Create account →</button>
+        </form>
     </div>
 </div>
 
@@ -636,6 +696,7 @@
         const ctx = contextMap[role];
         document.getElementById('contextLabel').textContent = ctx.label;
         document.getElementById('contextInput').placeholder = ctx.placeholder;
+        document.getElementById('roleInput').value = role; // Update hidden input
     }
 
     document.querySelectorAll('.role-tab').forEach(t => t.addEventListener('click', () => setRole(t.dataset.role)));
