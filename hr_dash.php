@@ -1,3 +1,41 @@
+<?php
+session_start();
+if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'HR') {
+    header("Location: login.php");
+    exit;
+}
+
+require_once 'db_config.php';
+$db = (new Database())->getConnection();
+
+// Get user initials
+$nameParts = explode(' ', $_SESSION['user_name']);
+$initials = strtoupper(substr($nameParts[0], 0, 1));
+if (count($nameParts) > 1) {
+    $initials .= strtoupper(substr($nameParts[count($nameParts)-1], 0, 1));
+}
+
+// Fetch all requests
+$stmt = $db->query("
+    SELECT lr.*, u.name as user_name, u.department 
+    FROM leave_requests lr 
+    JOIN users u ON lr.user_id = u.id 
+    ORDER BY lr.submitted_date DESC
+");
+$requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Calculate some simple dynamic stats
+$pending_count = 0;
+$approved_count = 0;
+$flagged_count = 0;
+
+foreach ($requests as $req) {
+    if ($req['sanction_status'] === 'PENDING') $pending_count++;
+    if ($req['sanction_status'] === 'APPROVE') $approved_count++;
+    if ($req['credibility_score'] < 50) $flagged_count++;
+}
+
+?>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&display=swap');
 
@@ -599,10 +637,10 @@
     <div class="sb-section">Account</div>
     <div class="sb-item"><span class="sb-icon">⚙</span> Settings</div>
 
-    <div class="sb-footer">
-      <div class="sb-avatar">PS</div>
+    <div class="sb-footer" onclick="window.location.href='profile.php'" style="cursor:pointer;">
+      <div class="sb-avatar"><?php echo htmlspecialchars($initials); ?></div>
       <div class="sb-user">
-        <h4>Priya Sharma</h4>
+        <h4><?php echo htmlspecialchars($_SESSION['user_name']); ?></h4>
         <p>HR Manager</p>
       </div>
     </div>
@@ -613,7 +651,7 @@
     <div class="topbar">
       <div class="topbar-left">
         <h2>HR Dashboard</h2>
-        <p>Tuesday, 14 April 2026</p>
+        <p><?php echo date('l, d F Y'); ?></p>
       </div>
       <div class="topbar-right">
         <button class="notif-btn">🔔<span class="notif-dot"></span></button>
@@ -622,186 +660,9 @@
     </div>
 
     <div class="content">
-      <!-- STAT CARDS -->
       <div class="stat-grid">
         <div class="stat-card">
           <div class="label">Pending Requests</div>
-          <div class="value">12</div>
-          <div class="delta up">↑ 3 since yesterday</div>
-          <div class="bar-bg">
-            <div class="bar-fill" style="width:60%;background:#1a7a4a"></div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Approved This Month</div>
-          <div class="value">47</div>
-          <div class="delta neu">→ Same as last month</div>
-          <div class="bar-bg">
-            <div class="bar-fill" style="width:75%;background:#185fa5"></div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="label">AI Flagged</div>
-          <div class="value">4</div>
-          <div class="delta down">↑ 2 need review</div>
-          <div class="bar-bg">
-            <div class="bar-fill" style="width:30%;background:#e24b4a"></div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Avg. Processing Time</div>
-          <div class="value">1.2<span style="font-size:1rem;font-family:var(--sans);color:var(--ink3)">d</span></div>
-          <div class="delta up">↓ 0.4d faster this week</div>
-          <div class="bar-bg">
-            <div class="bar-fill" style="width:85%;background:#8a5c00"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- REQUESTS + ALERTS -->
-      <div class="grid2">
-        <!-- REQUESTS -->
-        <div class="card">
-          <div class="card-head">
-            <h3>Recent Leave Requests</h3>
-            <a href="#">View all →</a>
-          </div>
-          <table class="req-table">
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Type</th>
-                <th>Dates</th>
-                <th>AI Score</th>
-                <th>Status</th>
-                <th>Auto-Sanction</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Arjun Mehta</strong><br><span style="color:var(--ink3);font-size:.72rem">Engineering</span></td>
-                <td>Sick Leave</td>
-                <td>Apr 15–16</td>
-                <td><span class="ai-score"><span class="score-dot" style="background:#1a7a4a"></span>94%</span></td>
-                <td><span class="badge badge-green">Approved</span></td>
-                <td><span class="badge badge-green" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-b)">✓ Auto</span></td>
-                <td>
-                  <div class="action-btns"><button class="act-btn">View</button></div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Sneha Roy</strong><br><span style="color:var(--ink3);font-size:.72rem">Marketing</span></td>
-                <td>Casual Leave</td>
-                <td>Apr 18</td>
-                <td><span class="ai-score"><span class="score-dot" style="background:#1a7a4a"></span>88%</span></td>
-                <td><span class="badge badge-green">Approved</span></td>
-                <td><span class="badge badge-green" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-b)">✓ Auto</span></td>
-                <td>
-                  <div class="action-btns"><button class="act-btn">View</button></div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Ravi Kumar</strong><br><span style="color:var(--ink3);font-size:.72rem">Sales</span></td>
-                <td>Sick Leave</td>
-                <td>Apr 14–17</td>
-                <td><span class="ai-score"><span class="score-dot" style="background:#e24b4a"></span>31%</span></td>
-                <td><span class="badge badge-red">Flagged</span></td>
-                <td><span class="badge badge-amber" style="background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-b)">⏳ Pending</span></td>
-                <td>
-                  <div class="action-btns"><button class="act-btn act-approve">✓</button><button class="act-btn act-reject">✕</button></div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Meera Nair</strong><br><span style="color:var(--ink3);font-size:.72rem">HR</span></td>
-                <td>Maternity</td>
-                <td>May 1–Jun 30</td>
-                <td><span class="ai-score"><span class="score-dot" style="background:#1a7a4a"></span>99%</span></td>
-                <td><span class="badge badge-green">Approved</span></td>
-                <td><span class="badge badge-green" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-b)">✓ Auto</span></td>
-                <td>
-                  <div class="action-btns"><button class="act-btn">View</button></div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Karan Singh</strong><br><span style="color:var(--ink3);font-size:.72rem">Finance</span></td>
-                <td>Sick Leave</td>
-                <td>Apr 14</td>
-                <td><span class="ai-score"><span class="score-dot" style="background:#ef9f27"></span>58%</span></td>
-                <td><span class="badge badge-amber">Pending</span></td>
-                <td><span class="badge badge-amber" style="background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-b)">⏳ Pending</span></td>
-                <td>
-                  <div class="action-btns"><button class="act-btn act-approve">✓</button><button class="act-btn act-reject">✕</button></div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- RIGHT COL -->
-        <div style="display:flex;flex-direction:column;gap:.85rem">
-          <!-- ALERTS -->
-          <div class="card">
-            <div class="card-head">
-              <h3>AI Alerts & Auto-Sanctioning</h3><a href="#">All alerts →</a>
-            </div>
-            <div class="alert-item">
-              <div class="alert-ico" style="background:var(--green-bg);color:var(--green)">✓</div>
-              <div class="alert-body">
-                <h4>Auto-approved: Arjun Mehta</h4>
-                <p>Sick Leave (Apr 15–16) — Medical reason with high credibility detected</p>
-              </div>
-              <div class="alert-time">2m ago</div>
-            </div>
-            <div class="alert-item">
-              <div class="alert-ico" style="background:var(--green-bg);color:var(--green)">✓</div>
-              <div class="alert-body">
-                <h4>Auto-approved: Meera Nair</h4>
-                <p>Maternity Leave (May 1–Jun 30) — Bereavement/Special circumstance detected</p>
-              </div>
-              <div class="alert-time">15m ago</div>
-            </div>
-            <div class="alert-item">
-              <div class="alert-ico" style="background:var(--red-bg);color:var(--red)">⚑</div>
-              <div class="alert-body">
-                <h4>Flagged for review: Ravi Kumar</h4>
-                <p>Sick Leave — Monday pattern detected (5 consecutive Monday absences)</p>
-              </div>
-              <div class="alert-time">1h ago</div>
-            </div>
-            <div class="alert-item">
-              <div class="alert-ico" style="background:var(--amber-bg);color:var(--amber)">⚠</div>
-              <div class="alert-body">
-                <h4>Low credibility: Karan Singh</h4>
-                <p>Casual Leave — Reason too vague ("Personal matter"). Requires manual review.</p>
-              </div>
-              <div class="alert-time">2h ago</div>
-            </div>
-          </div>
-
-          <!-- DEPT BREAKDOWN -->
-          <div class="card">
-            <div class="card-head">
-              <h3>By Department</h3><a href="#">Analytics →</a>
-            </div>
-            <div class="dept-item">
-              <div class="dept-name">Engineering</div>
-              <div class="dept-bar-bg">
-                <div class="dept-bar" style="width:80%"></div>
-              </div>
-              <div class="dept-count">8</div>
-            </div>
-            <div class="dept-item">
-              <div class="dept-name">Sales</div>
-              <div class="dept-bar-bg">
-                <div class="dept-bar" style="width:65%"></div>
-              </div>
-              <div class="dept-count">6</div>
-            </div>
-            <div class="dept-item">
-              <div class="dept-name">Marketing</div>
-              <div class="dept-bar-bg">
-                <div class="dept-bar" style="width:40%"></div>
               </div>
               <div class="dept-count">4</div>
             </div>

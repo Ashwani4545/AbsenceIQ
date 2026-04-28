@@ -1,3 +1,26 @@
+<?php
+session_start();
+if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'STUDENT') {
+    header("Location: login.php");
+    exit;
+}
+
+require_once 'db_config.php';
+$db = (new Database())->getConnection();
+
+// Get user initials
+$nameParts = explode(' ', $_SESSION['user_name']);
+$initials = strtoupper(substr($nameParts[0], 0, 1));
+if (count($nameParts) > 1) {
+    $initials .= strtoupper(substr($nameParts[count($nameParts)-1], 0, 1));
+}
+
+// Fetch user requests
+$stmt = $db->prepare("SELECT * FROM leave_requests WHERE user_id = ? ORDER BY submitted_date DESC");
+$stmt->execute([$_SESSION['user_id']]);
+$requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+?>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&display=swap');
 
@@ -560,11 +583,11 @@
     <div class="sb-section">Account</div>
     <div class="sb-item">🔔 Notifications <span class="sb-badge">1</span></div>
     <div class="sb-item">⚙ Settings</div>
-    <div class="sb-footer">
-      <div class="sb-avatar">AM</div>
+    <div class="sb-footer" onclick="window.location.href='profile.php'" style="cursor:pointer;">
+      <div class="sb-avatar"><?php echo htmlspecialchars($initials); ?></div>
       <div class="sb-user">
-        <h4>Arjun Mehta</h4>
-        <p>Class 10-A · Roll 14</p>
+        <h4><?php echo htmlspecialchars($_SESSION['user_name']); ?></h4>
+        <p>Student</p>
       </div>
     </div>
   </aside>
@@ -667,50 +690,44 @@
         <div style="display:flex;flex-direction:column;gap:.85rem">
           <!-- HISTORY -->
           <div class="card">
-            <div class="card-head">
-              <h3>Past Submissions</h3><a href="#">All →</a>
-            </div>
-            <div class="hist-item">
-              <div class="hist-icon" style="background:var(--green-bg)">🩺</div>
-              <div class="hist-body">
-                <h4>Medical — Mar 3</h4>
-                <p>Doctor visit, fever</p>
-              </div>
-              <div style="text-align:right">
-                <div class="hist-score" style="color:var(--green)">94%</div><span class="badge badge-green">Accepted</span>
-              </div>
-            </div>
-            <div class="hist-item">
-              <div class="hist-icon" style="background:var(--blue-bg)">👨‍👩‍👧</div>
-              <div class="hist-body">
-                <h4>Family — Feb 22</h4>
-                <p>Family function</p>
-              </div>
-              <div style="text-align:right">
-                <div class="hist-score" style="color:#ef9f27">63%</div><span class="badge badge-amber">Reviewed</span>
-              </div>
-            </div>
-            <div class="hist-item">
-              <div class="hist-icon" style="background:var(--red-bg)">❓</div>
-              <div class="hist-body">
-                <h4>Other — Jan 6</h4>
-                <p>"Not feeling well"</p>
-              </div>
-              <div style="text-align:right">
-                <div class="hist-score" style="color:var(--red)">22%</div><span class="badge badge-red">Rejected</span>
-              </div>
-            </div>
-            <div class="hist-item">
-              <div class="hist-icon" style="background:var(--amber-bg)">⏳</div>
-              <div class="hist-body">
-                <h4>Medical — Apr 7</h4>
-                <p>Pending review</p>
-              </div>
-              <div style="text-align:right">
-                <div class="hist-score" style="color:var(--ink3)">—</div><span class="badge badge-amber">Pending</span>
-              </div>
-            </div>
+          <div class="card-head">
+            <h3>Recent Excuses</h3><a href="#">History →</a>
           </div>
+          <?php if (empty($requests)): ?>
+            <div style="padding: 2rem 0; text-align: center; color: var(--ink3); font-size: 0.85rem;">
+               No requests found. When you submit a request, it will appear here.
+            </div>
+          <?php else: ?>
+            <?php foreach ($requests as $req): 
+                $icon = '📋'; $bg = 'var(--blue-bg)'; $color = 'var(--blue)';
+                if ($req['leave_type'] == 'Sick Leave') { $icon = '🤒'; $bg = 'var(--red-bg)'; $color = 'var(--red)'; }
+                
+                $days = (strtotime($req['to_date']) - strtotime($req['from_date'])) / (60 * 60 * 24) + 1;
+                
+                $badgeClass = 'badge-amber';
+                if ($req['sanction_status'] == 'APPROVE') $badgeClass = 'badge-green';
+                if ($req['sanction_status'] == 'REJECT') $badgeClass = 'badge-red';
+            ?>
+              <div class="hist-item">
+                <div class="hist-icon" style="background:<?php echo $bg; ?>;color:<?php echo $color; ?>"><?php echo $icon; ?></div>
+                <div class="hist-body">
+                  <h4><?php echo htmlspecialchars($req['leave_type']); ?></h4>
+                  <p><?php echo date('M j', strtotime($req['from_date'])); ?> – <?php echo date('M j, Y', strtotime($req['to_date'])); ?></p>
+                  <div class="ai-bar-wrap">
+                    <div class="ai-bar-label"><span>AI score</span><span><?php echo $req['credibility_score']; ?>%</span></div>
+                    <div class="ai-bar-bg">
+                      <div class="ai-bar-fill" style="width:<?php echo $req['credibility_score']; ?>%;background:<?php echo $req['credibility_score'] > 75 ? 'var(--green)' : ($req['credibility_score'] > 40 ? 'var(--amber)' : 'var(--red)'); ?>"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="hist-right">
+                  <div class="days"><?php echo $days; ?>d</div>
+                  <span class="badge <?php echo $badgeClass; ?>"><?php echo ucfirst(strtolower($req['sanction_status'])); ?></span>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
 
           <!-- TIPS -->
           <div class="card">
@@ -953,10 +970,8 @@
       const result = await response.json();
 
       if (result.success) {
-        alert(`✓ Excuse Submitted!\n\nStatus: ${result.status}\nCredibility: ${result.score}%\n${result.message}`);
-        document.querySelector('form').reset();
-        document.getElementById('aiFeedback').classList.remove('show');
-        document.getElementById('charCount').textContent = '0';
+        alert(`✓ Request Submitted!\n\nStatus: ${result.status}\nCredibility: ${result.score}%\n${result.message}`);
+        window.location.reload(); // Reload to show new request
       } else {
         alert('Error: ' + result.message);
       }

@@ -1,3 +1,42 @@
+<?php
+session_start();
+if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'TEACHER') {
+    header("Location: login.php");
+    exit;
+}
+
+require_once 'db_config.php';
+$db = (new Database())->getConnection();
+
+// Get user initials
+$nameParts = explode(' ', $_SESSION['user_name']);
+$initials = strtoupper(substr($nameParts[0], 0, 1));
+if (count($nameParts) > 1) {
+    $initials .= strtoupper(substr($nameParts[count($nameParts)-1], 0, 1));
+}
+
+// Fetch all STUDENT requests
+$stmt = $db->query("
+    SELECT lr.*, u.name as user_name, u.department 
+    FROM leave_requests lr 
+    JOIN users u ON lr.user_id = u.id 
+    WHERE u.role = 'STUDENT'
+    ORDER BY lr.submitted_date DESC
+");
+$requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Calculate some simple dynamic stats
+$pending_count = 0;
+$approved_count = 0;
+$flagged_count = 0;
+
+foreach ($requests as $req) {
+    if ($req['sanction_status'] === 'PENDING') $pending_count++;
+    if ($req['sanction_status'] === 'APPROVE') $approved_count++;
+    if ($req['credibility_score'] < 50) $flagged_count++;
+}
+
+?>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&display=swap');
 
@@ -521,22 +560,23 @@
     <div class="sb-item">📅 Attendance</div>
     <div class="sb-section">Tools</div>
     <div class="sb-item">📊 Reports</div>
-    <div class="sb-item">🔔 Alerts <span class="sb-badge">2</span></div>
+    <div class="sb-item">🔔 Alerts</div>
     <div class="sb-item">⚙ Settings</div>
-    <div class="sb-footer">
-      <div class="sb-avatar">MF</div>
+    <div class="sb-footer" onclick="window.location.href='profile.php'" style="cursor:pointer;">
+      <div class="sb-avatar"><?php echo htmlspecialchars($initials); ?></div>
       <div class="sb-user">
-        <h4>Ms. Fernandez</h4>
-        <p>Class Teacher</p>
+        <h4><?php echo htmlspecialchars($_SESSION['user_name']); ?></h4>
+        <p>Teacher</p>
       </div>
     </div>
   </aside>
 
+  <!-- MAIN -->
   <div class="main">
     <div class="topbar">
       <div class="topbar-left">
         <h2>Teacher Dashboard</h2>
-        <p>Tuesday, 14 April 2026</p>
+        <p><?php echo date('l, d F Y'); ?></p>
       </div>
       <div class="topbar-right">
         <button class="btn-sm">Export report</button>
@@ -569,95 +609,17 @@
       </div>
 
       <div class="grid2">
-        <!-- STUDENT LIST -->
+        <!-- STUDENT LIST (Abstract) -->
         <div class="card">
           <div class="card-head">
             <h3>Student Attendance</h3>
             <div class="class-tabs">
               <button class="ctab active">10-A</button>
-              <button class="ctab">10-B</button>
-              <button class="ctab">10-C</button>
             </div>
           </div>
-          <table class="stu-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Absences</th>
-                <th>Attendance</th>
-                <th>Risk</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Aarav Patel</strong></td>
-                <td>2</td>
-                <td>
-                  <div class="attn-bar-bg">
-                    <div class="attn-bar" style="width:94%;background:var(--green)"></div>
-                  </div> 94%
-                </td>
-                <td><span class="risk-dot" style="background:var(--green)"></span>Low</td>
-                <td><span class="badge badge-green">Good</span></td>
-              </tr>
-              <tr>
-                <td><strong>Priya Iyer</strong></td>
-                <td>8</td>
-                <td>
-                  <div class="attn-bar-bg">
-                    <div class="attn-bar" style="width:78%;background:#ef9f27"></div>
-                  </div> 78%
-                </td>
-                <td><span class="risk-dot" style="background:#ef9f27"></span>Med</td>
-                <td><span class="badge badge-amber">Watch</span></td>
-              </tr>
-              <tr>
-                <td><strong>Rohan Das</strong></td>
-                <td>14</td>
-                <td>
-                  <div class="attn-bar-bg">
-                    <div class="attn-bar" style="width:63%;background:var(--red)"></div>
-                  </div> 63%
-                </td>
-                <td><span class="risk-dot" style="background:var(--red)"></span>High</td>
-                <td><span class="badge badge-red">At risk</span></td>
-              </tr>
-              <tr>
-                <td><strong>Sneha Gupta</strong></td>
-                <td>1</td>
-                <td>
-                  <div class="attn-bar-bg">
-                    <div class="attn-bar" style="width:98%;background:var(--green)"></div>
-                  </div> 98%
-                </td>
-                <td><span class="risk-dot" style="background:var(--green)"></span>Low</td>
-                <td><span class="badge badge-green">Good</span></td>
-              </tr>
-              <tr>
-                <td><strong>Kiran Sharma</strong></td>
-                <td>11</td>
-                <td>
-                  <div class="attn-bar-bg">
-                    <div class="attn-bar" style="width:70%;background:var(--red)"></div>
-                  </div> 70%
-                </td>
-                <td><span class="risk-dot" style="background:var(--red)"></span>High</td>
-                <td><span class="badge badge-red">At risk</span></td>
-              </tr>
-              <tr>
-                <td><strong>Ananya Nair</strong></td>
-                <td>5</td>
-                <td>
-                  <div class="attn-bar-bg">
-                    <div class="attn-bar" style="width:85%;background:var(--green)"></div>
-                  </div> 85%
-                </td>
-                <td><span class="risk-dot" style="background:#ef9f27"></span>Med</td>
-                <td><span class="badge badge-amber">Watch</span></td>
-              </tr>
-            </tbody>
-          </table>
+          <div style="padding: 2rem; text-align: center; color: var(--ink3); font-size: 0.85rem;">
+            Attendance module is currently abstract.
+          </div>
         </div>
 
         <!-- EXCUSE REVIEW -->
@@ -665,50 +627,64 @@
           <div class="card-head">
             <h3>Excuse Review Inbox</h3><a href="#">All →</a>
           </div>
-          <div class="excuse-item">
-            <div class="excuse-top">
-              <h4>Rohan Das <span style="font-weight:400;color:var(--ink3)">— Apr 12</span></h4>
-              <span class="score-pill score-high">AI: 91%</span>
+          
+          <?php if (empty($requests)): ?>
+            <div style="padding: 2rem 0; text-align: center; color: var(--ink3); font-size: 0.85rem;">
+               No pending excuses from students.
             </div>
-            <div class="excuse-text">"Had high fever and doctor advised complete rest for two days. Medical certificate attached."</div>
-            <div class="excuse-meta">
-              <span class="badge badge-blue">Sick</span>
-              <div class="excuse-actions">
-                <button class="act-btn act-approve">✓ Accept</button>
-                <button class="act-btn act-reject">✕ Reject</button>
+          <?php else: ?>
+            <?php foreach ($requests as $req): 
+                $scoreColor = $req['credibility_score'] >= 75 ? 'score-high' : ($req['credibility_score'] >= 40 ? 'score-mid' : 'score-low');
+                $badgeClass = 'badge-blue';
+            ?>
+              <div class="excuse-item" id="excuse-<?php echo $req['id']; ?>">
+                <div class="excuse-top">
+                  <h4><?php echo htmlspecialchars($req['user_name']); ?> <span style="font-weight:400;color:var(--ink3)">— <?php echo date('M j', strtotime($req['submitted_date'])); ?></span></h4>
+                  <span class="score-pill <?php echo $scoreColor; ?>">AI: <?php echo $req['credibility_score']; ?>%</span>
+                </div>
+                <div class="excuse-text">"<?php echo htmlspecialchars($req['reason']); ?>"</div>
+                <div class="excuse-meta">
+                  <span class="badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($req['leave_type']); ?></span>
+                  <div class="excuse-actions" id="actions-<?php echo $req['id']; ?>">
+                    <?php if ($req['sanction_status'] === 'PENDING'): ?>
+                      <button class="act-btn act-approve" onclick="updateStatus(<?php echo $req['id']; ?>, 'APPROVE')">✓ Accept</button>
+                      <button class="act-btn act-reject" onclick="updateStatus(<?php echo $req['id']; ?>, 'REJECT')">✕ Reject</button>
+                    <?php else: ?>
+                      <span style="font-size:0.75rem; color:var(--ink3);">Status: <?php echo ucfirst(strtolower($req['sanction_status'])); ?></span>
+                    <?php endif; ?>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div class="excuse-item">
-            <div class="excuse-top">
-              <h4>Kiran Sharma <span style="font-weight:400;color:var(--ink3)">— Apr 11</span></h4>
-              <span class="score-pill score-low">AI: 24%</span>
-            </div>
-            <div class="excuse-text">"Was not feeling well and couldn't come."</div>
-            <div class="excuse-meta">
-              <span class="badge badge-red">Flagged</span>
-              <div class="excuse-actions">
-                <button class="act-btn act-approve">✓ Accept</button>
-                <button class="act-btn act-reject">✕ Reject</button>
-              </div>
-            </div>
-          </div>
-          <div class="excuse-item">
-            <div class="excuse-top">
-              <h4>Priya Iyer <span style="font-weight:400;color:var(--ink3)">— Apr 10</span></h4>
-              <span class="score-pill score-mid">AI: 62%</span>
-            </div>
-            <div class="excuse-text">"Family function that was unavoidable. Parents were informed."</div>
-            <div class="excuse-meta">
-              <span class="badge badge-amber">Personal</span>
-              <div class="excuse-actions">
-                <button class="act-btn act-approve">✓ Accept</button>
-                <button class="act-btn act-reject">✕ Reject</button>
-              </div>
-            </div>
-          </div>
+            <?php endforeach; ?>
+          <?php endif; ?>
+          
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<script>
+async function updateStatus(reqId, action) {
+    if (!confirm('Are you sure you want to ' + action.toLowerCase() + ' this request?')) return;
+    
+    try {
+        const response = await fetch('api/update_request.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ request_id: reqId, action: action })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const actionsDiv = document.getElementById('actions-' + reqId);
+            actionsDiv.innerHTML = '<span style="font-size:0.75rem; color:var(--ink3);">Status: ' + (action === 'APPROVE' ? 'Approve' : 'Reject') + '</span>';
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (e) {
+        alert('An error occurred. Please try again.');
+    }
+}
+</script>

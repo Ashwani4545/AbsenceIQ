@@ -15,6 +15,11 @@ if (!$db) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized. Please log in.']);
+        exit;
+    }
+
     $input = json_decode(file_get_contents('php://input'), true);
 
     if (!$input) {
@@ -26,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $from_date = $input['from_date'] ?? '';
     $to_date = $input['to_date'] ?? '';
     $reason = $input['reason'] ?? '';
-    $user_id = 1; // Assuming dummy user 1 for now
+    $user_id = $_SESSION['user_id'];
 
     // Validation
     if (empty($leave_type) || empty($from_date) || empty($to_date) || empty($reason)) {
