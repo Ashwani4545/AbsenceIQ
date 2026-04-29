@@ -5,40 +5,30 @@ The Automatic Leave Sanction System intelligently analyzes leave request reasons
 
 ## System Architecture
 
-### Files Created
+### Core Files
 
-#### 1. **leave_sanction_rules.php**
+#### 1. **Authentication & Access**
+- `login.php` - Handles secure session creation and role-based redirects.
+- `register.php` - Secure user registration with password hashing.
+- `logout.php` - Terminates PHP sessions securely.
+- `profile.php` - Minimalist profile viewer for logged-in users.
+
+#### 2. **leave_sanction_rules.php (AI Engine)**
 Contains the sanction rules engine and credibility scoring logic.
-
-**Key Classes:**
-- `LeaveSanctionRules` - Main class with all sanction logic
 
 **Key Methods:**
 ```php
 LeaveSanctionRules::getSanctionStatus($reason, $leave_type, $credibility_score, $consecutive_requests)
-- Returns: ['status' => 'APPROVE|PENDING|REJECT', 'confidence' => score, 'message' => reason]
-
 LeaveSanctionRules::calculateCredibilityScore($reason)
-- Returns: AI confidence score (0-100)
 ```
 
-#### 2. **process_leave_request.php**
-Handles leave request submission and processing with automatic sanction.
+#### 3. **API Endpoints (`/api/`)**
+- `submit_request.php` - Receives JSON payload from Employees/Students, calculates AI score, and inserts into DB.
+- `update_request.php` - Endpoint for HR/Teachers to Approve or Reject requests dynamically without page reloads.
 
-**Key Classes:**
-- `LeaveRequestProcessor` - Processes leave requests
-
-**Key Methods:**
-```php
-$processor = new LeaveRequestProcessor($db_connection, $user_id);
-$response = $processor->processLeaveRequest($request_data);
-```
-
-#### 3. **Updated emp_dash.php & student_dash.php**
-Added JavaScript-based automatic sanction preview and real-time credibility scoring.
-
-#### 4. **Updated hr_dash.php**
-Added "Auto-Sanction" column to show which requests were automatically approved/flagged.
+#### 4. **Role-Based Dashboards**
+- `emp_dash.php` & `student_dash.php`: Submitter portals with real-time AI scoring preview.
+- `hr_dash.php` & `teahcer_dash.php`: Approver portals pulling pending/approved requests from the DB.
 
 ---
 
@@ -250,23 +240,18 @@ FINAL SCORE: 90%
 
 ## Database Integration
 
-The database integration is complete and uses PDO to connect to MySQL.
+The system uses a highly optimized MySQL database connected via PDO in PHP.
 
 ### Setup Instructions
 
-1. Ensure your MySQL server (via XAMPP or similar) is running.
-2. Run the provided `setup_db.php` script from the command line or browser:
-   ```bash
-   php setup_db.php
-   ```
-3. This will create the `absenceiq` database and automatically seed all the required tables:
-   - `users`
-   - `leave_requests`
-   - `leave_sanction_audit`
-   - `leave_sanction_stats`
+1. Ensure your local server (XAMPP/WAMP/MAMP) is running with Apache and MySQL.
+2. Open phpMyAdmin (`http://localhost/phpmyadmin`).
+3. Create a new database named `absenceiq`.
+4. Navigate to the "Import" tab and upload the `absenceiq.sql` file provided in the root directory.
+5. The database and all necessary tables (`users`, `leave_requests`, `leave_sanction_audit`) are now ready.
 
 ### Backend Implementation
-The API endpoint `/api/submit_request.php` is fully functional. It accepts POST requests from the dashboards, connects to the database via `db_config.php`, runs the AI credibility check via `LeaveSanctionRules`, and stores the request appropriately.
+The API endpoints in the `/api/` folder are fully functional. They check PHP `$_SESSION` to authenticate users, interact with `db_config.php` for database execution, and utilize `LeaveSanctionRules` to make autonomous HR decisions.
 
 ---
 
@@ -410,17 +395,20 @@ A: Adjust threshold in `leave_sanction_rules.php` - change `flag_if_count_exceed
 
 ## Version History
 
-**v1.1** (2026-04-26)
-- Fully integrated MySQL Database via PDO
-- Added `setup_db.php` initialization script
-- Added `api/submit_request.php` endpoint
+**v1.2** (Current)
+- Complete refactor to a simplified, secure PHP backend.
+- Integrated PHP `$_SESSION` for strict role-based authentication.
+- Removed obsolete mockups (`forgot_password`, etc.) for an ultra-clean, minimal architecture.
+- Added `api/update_request.php` allowing HR/Teachers to approve/reject asynchronously.
+- Transformed all static UI dashboards into fully dynamic, database-driven pages.
+
+**v1.1**
+- Fully integrated MySQL Database via PDO.
+- Added `absenceiq.sql` initialization script.
 - Updated dashboards (`emp_dash.php`, `student_dash.php`, `hr_dash.php`, `teahcer_dash.php`) to be completely responsive on mobile devices using modern CSS Flexbox and Grid.
 - Wired front-end forms to submit directly to backend APIs via Fetch API.
 
-**v1.0** (2026-04-15)
-- Initial release
-- 6 core sanction rules
-- Real-time credibility scoring
-- HR dashboard integration
-- Employee/Student interfaces
-
+**v1.0**
+- Initial release with 6 core sanction rules.
+- Real-time AI credibility scoring.
+- Static UI mockups for Employee/Student and HR dashboards.
